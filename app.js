@@ -1,3 +1,4 @@
+//test 2
 //test
 //var StatsD = require('hot-shots')
 var metrics = require('datadog-metrics')
