@@ -83,37 +83,19 @@ Resources:
           OutputArtifacts:
           - Name: MyApp
           RunOrder: 1
-      - Name: Deploy
+      - Name: Build
         Actions:
-        - Name: CreateChangeSet
+        - Name: Build
           ActionTypeId:
-            Category: Deploy
+            Category: Build
             Owner: AWS
-            Provider: CloudFormation
             Version: '1'
+						Provider: CodeBuild
           InputArtifacts:
             - Name: MyApp
           Configuration:
-            ActionMode: CHANGE_SET_REPLACE
-            Capabilities: CAPABILITY_IAM
-            RoleArn: !GetAtt CloudformationRole.Arn
-            StackName: !Ref ApplicationStackName
-            ChangeSetName: changeset
-            TemplatePath: !Sub "MyApp::packaged-sam.yml" # Must match buildspec.yml value
+            ProjectName: !Ref "arn:aws:iam::124945441934:role/service-role/code-build-build-test2-service-role"
           RunOrder: 1
-        - Name: ExecuteChangeSet
-          ActionTypeId:
-            Category: Deploy
-            Owner: AWS
-            Provider: CloudFormation
-            Version: '1'
-          Configuration:
-            ActionMode: CHANGE_SET_EXECUTE
-            Capabilities: CAPABILITY_IAM
-            ChangeSetName: changeset
-            RoleArn: !GetAtt CloudformationRole.Arn
-            StackName: !Ref ApplicationStackName
-          RunOrder: 2
 
   # IAM role for code build project. Should give access all AWS resources needed by build and tests run by build.
   CodeBuildRole:
