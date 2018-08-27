@@ -99,8 +99,7 @@ Resources:
             RoleArn: !GetAtt CloudformationRole.Arn
             StackName: !Ref ApplicationStackName
             ChangeSetName: changeset
-            TemplatePath: !Sub "MyAppBuild::packaged-sam.yml" # Must match buildspec.yml value
-            TemplateConfiguration: !Sub "MyAppBuild::parameters-${LowercaseENVTag}.json"
+            TemplatePath: !Sub "MyApp::packaged-sam.yml" # Must match buildspec.yml value
           RunOrder: 1
         - Name: ExecuteChangeSet
           ActionTypeId:
