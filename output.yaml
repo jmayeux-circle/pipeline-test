@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: An AWS Serverless Specification template describing your function.
+Resources:
+  walletslambdastackGetUTXOsTFT44UNSTQ1B:
+    Properties:
+      CodeUri: s3://wallets-lambda/e31cb8909f39cac28419fe9f99e0b2ea
+      Description: ''
+      Environment:
+        Variables:
+          DATADOG_API_KEY: e30cf2a2f5ea23cdfa5cc6a8a5633640
+      Events:
+        Schedule1:
+          Properties:
+            Schedule: rate(1 hour)
+          Type: Schedule
+      Handler: app.lambda_handler
+      MemorySize: 1024
+      Role: arn:aws:iam::124945441934:role/wallets-lambda-stack-GetUTXOsRole-1ICT7SU03MTXH
+      Runtime: nodejs8.10
+      Timeout: 200
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-037ee22fe46041c95
+        SubnetIds:
+        - subnet-8f718ad7
+        - subnet-87887fad
+        - subnet-a1c060d7
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31

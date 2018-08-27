@@ -1,0 +1,295 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Wallet Monitor Pipeline
+
+Parameters:
+  ApplicationStackName:
+    Type: String
+    Default: POLO-WALLET-MONITOR
+    AllowedPattern: "[A-Za-z0-9-]+"
+  CodePipelineName:
+    Description: The CodePipeline display name
+    Type: String
+    Default: polo-wallet-monitor
+  LowercaseENVTag:
+    Description: environment for deployment
+    Type: String
+    Default: prod
+  GithubRepoOwner:
+    Description: The GitHub username of the repository owner, case-sensitive
+    Type: String
+    Default: jmayeux-circle
+  GithubRepo:
+    Description: The GitHub repository name, case-sensitive
+    Type: String
+    Default: "polo-wallet-monitor"
+  GithubBranchName:
+    Description: The GitHub branch for the repository to use, case-sensitive
+    Type: String
+    Default: "master"
+  GithubOAuthToken:
+    Description: GitHub token with 'repo' and 'admin:repo_hook' permissions
+    Type: String
+    NoEcho: true
+    Default: "0e19de7be643093d4832abcf75eed8802dd7c134"
+  BuildBucket:
+    Description: The s3 Bucket name to upload source and build production
+    Type: String
+    Default: wallets-lambda
+
+Resources:
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    DependsOn: CodeBuildRole
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/python:3.6.5
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+        - Name: CFN_PACKAGE_S3_BUCKET
+          Value: !Ref BuildBucket
+      ServiceRole: !Ref CodeBuildRole
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: deployment-pipeline/buildspec.yml
+
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: { "Fn::Sub": "${CodePipelineName}" }
+      ArtifactStore:
+        Type: S3
+        Location: !Ref BuildBucket
+      RestartExecutionOnUpdate: true
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+      - Name: Source
+        Actions:
+        - Name: GithubRepo
+          ActionTypeId:
+            Category: Source
+            Owner: ThirdParty
+            Version: 1
+            Provider: GitHub
+          Configuration:
+            Owner: { "Ref": "GithubRepoOwner" }
+            Repo: { "Ref": "GithubRepo" }
+            Branch: { "Ref": "GithubBranchName" }
+            OAuthToken: { "Ref": "GithubOAuthToken" }
+            PollForSourceChanges: True
+          OutputArtifacts:
+          - Name: MyApp
+          RunOrder: 1
+      - Name: Deploy
+        Actions:
+        - Name: CreateChangeSet
+          ActionTypeId:
+            Category: Deploy
+            Owner: AWS
+            Provider: CloudFormation
+            Version: '1'
+          InputArtifacts:
+            - Name: MyApp
+          Configuration:
+            ActionMode: CHANGE_SET_REPLACE
+            Capabilities: CAPABILITY_IAM
+            RoleArn: !GetAtt CloudformationRole.Arn
+            StackName: !Ref ApplicationStackName
+            ChangeSetName: changeset
+            TemplatePath: !Sub "MyAppBuild::packaged-sam.yml" # Must match buildspec.yml value
+            TemplateConfiguration: !Sub "MyAppBuild::parameters-${LowercaseENVTag}.json"
+          RunOrder: 1
+        - Name: ExecuteChangeSet
+          ActionTypeId:
+            Category: Deploy
+            Owner: AWS
+            Provider: CloudFormation
+            Version: '1'
+          Configuration:
+            ActionMode: CHANGE_SET_EXECUTE
+            Capabilities: CAPABILITY_IAM
+            ChangeSetName: changeset
+            RoleArn: !GetAtt CloudformationRole.Arn
+            StackName: !Ref ApplicationStackName
+          RunOrder: 2
+
+  # IAM role for code build project. Should give access all AWS resources needed by build and tests run by build.
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: codebuild.amazonaws.com
+          Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          # Allow code build to stream logs
+          - Sid: CloudWatchLogsPolicy
+            Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+            - Fn::Sub: "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+          # Allow code build to put build artifacts to S3 bucket
+          - Sid: S3AccessPolicy
+            Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:PutObjectAcl
+            Resource:
+            - Fn::Sub: "arn:aws:s3:::${BuildBucket}"
+            - Fn::Sub: "arn:aws:s3:::${BuildBucket}/*"
+
+  # IAM role for pipeline.
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: codepipeline.amazonaws.com
+          Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: S3AccessPolicy
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:GetBucketVersioning
+            - s3:PutObject
+            Resource:
+            - Fn::Sub: "arn:aws:s3:::${BuildBucket}"
+            - Fn::Sub: "arn:aws:s3:::${BuildBucket}/*"
+            Effect: Allow
+          - Sid: cloudformationAccessPolicy
+            Action:
+            - cloudformation:CreateStack
+            - cloudformation:DescribeStacks
+            - cloudformation:UpdateStack
+            - cloudformation:CreateChangeSet
+            - cloudformation:DeleteChangeSet
+            - cloudformation:DescribeChangeSet
+            - cloudformation:ExecuteChangeSet
+            - iam:PassRole
+            Resource: "*"
+            Effect: Allow
+
+  CloudformationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          Effect: Allow
+          Principal:
+            Service: cloudformation.amazonaws.com
+          Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: CloudformationAccess
+            Action:
+            - cloudformation:CreateChangeSet
+            Resource: "*"
+            Effect: Allow
+          - Sid: IAMAccess
+            Action:
+            - iam:createRole
+            - iam:PutRolePolicy
+            - iam:GetRole
+            - iam:PassRole
+            - iam:DeleteRole
+            - iam:DeleteRolePolicy
+            - iam:UpdateAssumeRolePolicyDocument
+            - iam:UpdateAssumeRolePolicy
+            Resource: "*"
+            Effect: Allow
+          - Sid: LambdaAccess
+            Action:
+            - lambda:CreateFunction
+            - lambda:CreateEventSourceMapping
+            - lambda:DeleteFunction
+            - lambda:DeleteEventSourceMapping
+            - lambda:GetFunctionConfiguration
+            - lambda:GetEventSourceMapping
+            - lambda:GetFunction
+            - lambda:AddPermission
+            - lambda:RemovePermission
+            - lambda:UpdateFunctionCode
+            - lambda:UpdateEventSourceMapping
+            - lambda:UpdateFunctionConfiguration
+            - lambda:ListTags
+            - lambda:TagResource
+            - lambda:UntagResource
+            Resource: "*"
+            Effect: Allow
+          - Sid: EventsAccess
+            Action:
+            - events:PutTargets
+            - events:RemoveTargets
+            - events:DescribeRule
+            - events:PutRule
+            - events:DeleteRule
+            Resource: "*"
+            Effect: Allow
+          - Sid: BuildBucketAccess
+            Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:PutObjectAcl
+            Resource:
+            - Fn::Sub: "arn:aws:s3:::${BuildBucket}/*"
+          - Sid: SecurityGroupResourceAccess
+            Effect: Allow
+            Action:
+            - ec2:AuthorizeSecurityGroupEgress
+            - ec2:AuthorizeSecurityGroupIngress
+            - ec2:DeleteSecurityGroup
+            - ec2:RevokeSecurityGroupEgress
+            - ec2:RevokeSecurityGroupIngress
+            - ec2:UpdateSecurityGroupRuleDescriptionsIngress
+            - ec2:UpdateSecurityGroupRuleDescriptionsEgress
+            Resource:
+            - Fn::Sub: "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*"
+          - Sid: GeneralSecurityGroupAndVpcAccess
+            Effect: Allow
+            Action:
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSecurityGroupReferences
+            - ec2:CreateSecurityGroup
+            - ec2:DescribeStaleSecurityGroups
+            - ec2:DescribeVpcs
+            - ec2:DescribeSubnets
+            Resource: "*"
+
+Outputs:
+  BuildBucket:
+    Description: S3 bucket to upload source.zip build and deploy
+    Export:
+        Name: WalletMonitorPipelineBuildBucket
+    Value: BuildBucket

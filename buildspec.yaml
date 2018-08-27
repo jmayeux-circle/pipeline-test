@@ -1,0 +1,18 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - npm i # https://github.com/awslabs/serverless-application-model/issues/93
+  build:
+    commands:
+      - aws cloudformation package --template-file template.yaml
+                                   --s3-bucket wallets-lambda
+                                   --s3-prefix polo-wallet-monitor
+                                   --output-template-file packaged-sam.yaml
+
+artifacts:
+  type: zip
+  files:
+    - packaged-sam.yml
+  discard-paths: yes
