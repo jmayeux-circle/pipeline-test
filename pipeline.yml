@@ -161,6 +161,46 @@ Resources:
             - lambda:UntagResource
             Resource: "*"
             Effect: Allow
+          - Sid: GeneralSecurityGroupAndVpcAccess
+            Effect: Allow
+            Action:
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSecurityGroupReferences
+            - ec2:CreateSecurityGroup
+            - ec2:DescribeStaleSecurityGroups
+            - ec2:DescribeVpcs
+            - ec2:DescribeSubnets
+            Resource: "*"
+          - Sid: EventsAccess
+            Action:
+            - events:PutTargets
+            - events:RemoveTargets
+            - events:DescribeRule
+            - events:PutRule
+            - events:DeleteRule
+            Resource: "*"
+            Effect: Allow
+          - Sid: BuildBucketAccess
+            Effect: Allow
+            Action:
+            - s3:GetObject
+            - s3:GetObjectVersion
+            - s3:PutObject
+            - s3:PutObjectAcl
+            Resource:
+            - Fn::Sub: "arn:aws:s3:::${BuildBucket}/*"
+          - Sid: SecurityGroupResourceAccess
+            Effect: Allow
+            Action:
+            - ec2:AuthorizeSecurityGroupEgress
+            - ec2:AuthorizeSecurityGroupIngress
+            - ec2:DeleteSecurityGroup
+            - ec2:RevokeSecurityGroupEgress
+            - ec2:RevokeSecurityGroupIngress
+            - ec2:UpdateSecurityGroupRuleDescriptionsIngress
+            - ec2:UpdateSecurityGroupRuleDescriptionsEgress
+            Resource:
+            - Fn::Sub: "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:security-group/*"
 
   # IAM role for pipeline.
   CodePipelineRole:
@@ -207,6 +247,16 @@ Resources:
             - iam:PassRole
             Resource: "*"
             Effect: Allow
+          - Sid: GeneralSecurityGroupAndVpcAccess
+            Effect: Allow
+            Action:
+            - ec2:DescribeSecurityGroups
+            - ec2:DescribeSecurityGroupReferences
+            - ec2:CreateSecurityGroup
+            - ec2:DescribeStaleSecurityGroups
+            - ec2:DescribeVpcs
+            - ec2:DescribeSubnets
+            Resource: "*"
 
   CloudformationRole:
     Type: AWS::IAM::Role
