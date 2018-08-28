@@ -5,8 +5,8 @@ phases:
       - npm i # https://github.com/awslabs/serverless-application-model/issues/93
   build:
     commands:
-      - aws cloudformation package --template-file template.yml --s3-bucket wallets-lambda --s3-prefix polo-wallet-monitor-test --output-template-file packaged-sam.yml
+      - aws cloudformation package --template-file template.yml --s3-bucket wallets-lambda --s3-prefix polo-wallets-monitor --output-template-file packaged-sam.yml
   post_build:
 		commands:
-      - aws cloudformation deploy --template-file packaged-sam.yml --stack-name polo-wallet-monitor-test --capabilities CAPABILITY_IAM
+      - aws cloudformation deploy --template-file packaged-sam.yml --stack-name polo-wallets-monitor --capabilities CAPABILITY_IAM
 
