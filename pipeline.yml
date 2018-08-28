@@ -142,6 +142,25 @@ Resources:
             - iam:PassRole
             Resource: "*"
             Effect: Allow
+          - Sid: LambdaAccess
+            Action:
+            - lambda:CreateFunction
+            - lambda:CreateEventSourceMapping
+            - lambda:DeleteFunction
+            - lambda:DeleteEventSourceMapping
+            - lambda:GetFunctionConfiguration
+            - lambda:GetEventSourceMapping
+            - lambda:GetFunction
+            - lambda:AddPermission
+            - lambda:RemovePermission
+            - lambda:UpdateFunctionCode
+            - lambda:UpdateEventSourceMapping
+            - lambda:UpdateFunctionConfiguration
+            - lambda:ListTags
+            - lambda:TagResource
+            - lambda:UntagResource
+            Resource: "*"
+            Effect: Allow
 
   # IAM role for pipeline.
   CodePipelineRole:
