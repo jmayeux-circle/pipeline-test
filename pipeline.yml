@@ -4,16 +4,12 @@ Description: Wallet Monitor Pipeline
 Parameters:
   ApplicationStackName:
     Type: String
-    Default: POLO-WALLET-MONITOR
+    Default: polo-wallet-monitor
     AllowedPattern: "[A-Za-z0-9-]+"
   CodePipelineName:
     Description: The CodePipeline display name
     Type: String
-    Default: polo-wallet-monitor
-  LowercaseENVTag:
-    Description: environment for deployment
-    Type: String
-    Default: prod
+    Default: polo-wallet-monitor-test-pipe
   GithubRepoOwner:
     Description: The GitHub username of the repository owner, case-sensitive
     Type: String
@@ -21,7 +17,7 @@ Parameters:
   GithubRepo:
     Description: The GitHub repository name, case-sensitive
     Type: String
-    Default: "polo-wallet-monitor"
+    Default: "pipeline-test"
   GithubBranchName:
     Description: The GitHub branch for the repository to use, case-sensitive
     Type: String
@@ -30,7 +26,6 @@ Parameters:
     Description: GitHub token with 'repo' and 'admin:repo_hook' permissions
     Type: String
     NoEcho: true
-    Default: "0e19de7be643093d4832abcf75eed8802dd7c134"
   BuildBucket:
     Description: The s3 Bucket name to upload source and build production
     Type: String
@@ -46,7 +41,7 @@ Resources:
         Type: CODEPIPELINE
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
-        Image: aws/codebuild/python:3.6.5
+        Image: aws/codebuild/nodejs:8.11.0
         Type: LINUX_CONTAINER
         EnvironmentVariables:
         - Name: CFN_PACKAGE_S3_BUCKET
@@ -54,7 +49,7 @@ Resources:
       ServiceRole: !Ref CodeBuildRole
       Source:
         Type: CODEPIPELINE
-        BuildSpec: deployment-pipeline/buildspec.yml
+        BuildSpec: buildspec.yml
 
   CodePipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -90,11 +85,11 @@ Resources:
             Category: Build
             Owner: AWS
             Version: '1'
-						Provider: CodeBuild
+            Provider: CodeBuild
           InputArtifacts:
             - Name: MyApp
           Configuration:
-            ProjectName: !Ref "arn:aws:iam::124945441934:role/service-role/code-build-build-test2-service-role"
+            ProjectName: !Ref CodeBuildProject
           RunOrder: 1
 
   # IAM role for code build project. Should give access all AWS resources needed by build and tests run by build.
@@ -171,6 +166,12 @@ Resources:
             - cloudformation:DeleteChangeSet
             - cloudformation:DescribeChangeSet
             - cloudformation:ExecuteChangeSet
+            - iam:PassRole
+            Resource: "*"
+            Effect: Allow
+          - Sid: CodeBuildDefaultPolicy
+            Action:
+            - codebuild:*
             - iam:PassRole
             Resource: "*"
             Effect: Allow
@@ -268,9 +269,9 @@ Resources:
             - ec2:DescribeSubnets
             Resource: "*"
 
-Outputs:
-  BuildBucket:
-    Description: S3 bucket to upload source.zip build and deploy
-    Export:
-        Name: WalletMonitorPipelineBuildBucket
-    Value: BuildBucket
+#Outputs:
+#  BuildBucket:
+#    Description: S3 bucket to upload source.zip build and deploy
+#    Export:
+#        Name: WalletMonitorPipelineBuildBucket
+#    Value: BuildBucket

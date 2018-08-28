@@ -3,7 +3,7 @@ Description: An AWS Serverless Specification template describing your function.
 Resources:
   walletslambdastackGetUTXOsTFT44UNSTQ1B:
     Properties:
-      CodeUri: s3://wallets-lambda/polo-wallet-monitor/b7347ea9b930cec9f70452629d0b8236
+      CodeUri: s3://wallets-lambda/2dfde91a45ca1eae59bd821885ba9185
       Description: ''
       Environment:
         Variables:
